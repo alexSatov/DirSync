@@ -4,8 +4,10 @@ namespace DirSync.Sync
 {
     public class SyncInfo
     {
-        public IEnumerable<string> ToDelete { get; set; }
-        public IEnumerable<string> ToAdd { get; set; }
-        public IEnumerable<string> ToCompare { get; set; }
+        public string[] FilesToDelete { get; set; }
+        public string[] FilesToAdd { get; set; }
+        public string[] FilesToReplace { get; set; }
+
+        public bool NeedToSync => FilesToDelete.Length > 0 || FilesToAdd.Length > 0 || FilesToReplace.Length > 0;
     }
 }

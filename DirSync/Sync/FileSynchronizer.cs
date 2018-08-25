@@ -7,47 +7,77 @@ namespace DirSync.Sync
 {
     public class FileSynchronizer
     {
-        private ILog log;
+        private readonly ILog log;
 
         public FileSynchronizer(ILog log)
         {
             this.log = log;
         }
 
-        public void SyncDirs(string source, string target)
+        public SyncInfo SyncDirs(string source, string target)
         {
-            if (!IsSourceExist(source)) return;
-            
-            CreateTargetIfNotExist(target);
+            var syncInfo = GetDirsSyncInfo(source, target);
+
+            if (syncInfo == null) return null;
+
             log.Info($"Synchronizing \"{target}\" with \"{source}\"");
 
-            var syncInfo = GetDirsSyncInfo(source, target);
+            DeleteFiles(target, syncInfo.FilesToDelete);
+            AddFiles(source, target, syncInfo.FilesToAdd);
+            ReplaceFiles(source, target, syncInfo.FilesToReplace);
+
+            return syncInfo;
         }
 
         public SyncInfo GetDirsSyncInfo(string source, string target)
         {
-            var sourceFilenames = new HashSet<string>(GetAllFilenames(new DirectoryInfo(source)));
-            var targetFilenames = new HashSet<string>(GetAllFilenames(new DirectoryInfo(target)));
+            if (!IsSourceExist(source)) return null;
+            if (SameDirs(source, target)) return null;
+
+            CreateTargetIfNotExist(target);
+
+            var sourceFilenames = new HashSet<string>(GetAllFilenames(source));
+            var targetFilenames = new HashSet<string>(GetAllFilenames(target));
 
             return new SyncInfo
             {
-                ToDelete = targetFilenames.Except(sourceFilenames),
-                ToAdd = sourceFilenames.Except(targetFilenames),
-                ToCompare = sourceFilenames.Intersect(targetFilenames)
+                FilesToDelete = targetFilenames.Except(sourceFilenames).ToArray(),
+                FilesToAdd = sourceFilenames.Except(targetFilenames).ToArray(),
+                FilesToReplace = FilterSameFiles(source, target, sourceFilenames.Intersect(targetFilenames)).ToArray()
             };
         }
 
-        private int DeleteFiles(IEnumerable<FileInfo> files)
+        private void DeleteFiles(string target, IEnumerable<string> filenames)
         {
-            var count = 0;
-
-            foreach (var file in files)
+            foreach (var filename in filenames)
             {
-                count++;
-                file.Delete();
+                File.Delete(Path.Combine(target, filename));
+                log.DeleteInfo(filename);
             }
+        }
 
-            return count;
+        private void AddFiles(string source, string target, IEnumerable<string> filenames)
+        {
+            foreach (var filename in filenames)
+            {
+                var targetPath = Path.Combine(target, filename);
+                var targetDir = Path.GetDirectoryName(targetPath);
+
+                if (!Directory.Exists(targetDir))
+                    Directory.CreateDirectory(targetDir);
+
+                File.Copy(Path.Combine(source, filename), targetPath);
+                log.AddInfo(filename);
+            }
+        }
+
+        private void ReplaceFiles(string source, string target, IEnumerable<string> filenames)
+        {
+            foreach (var filename in filenames)
+            {
+                File.Copy(Path.Combine(source, filename), Path.Combine(target, filename), true);
+                log.ReplaceInfo(filename);
+            }
         }
 
         private bool IsSourceExist(string source)
@@ -59,6 +89,15 @@ namespace DirSync.Sync
             return false;
         }
 
+        private bool SameDirs(string source, string target)
+        {
+            if (source != target) return false;
+
+            log.Warn("Source and target directories are the same (you shouldn't use copypaste)");
+
+            return true;
+        }
+
         private void CreateTargetIfNotExist(string target)
         {
             if (Directory.Exists(target)) return;
@@ -67,17 +106,29 @@ namespace DirSync.Sync
             Directory.CreateDirectory(target);
         }
 
-        private static IEnumerable<string> GetAllFilenames(DirectoryInfo dir, string prefix = "")
+        private static IEnumerable<string> GetAllFilenames(string dir, string prefix = "")
         {
-            var filenames = new HashSet<string>(dir.EnumerateFiles().Select(f => Path.Combine(prefix, f.Name)));
+            var filenames = new HashSet<string>(
+                    Directory.EnumerateFiles(dir).Select(f => Path.Combine(prefix, Path.GetFileName(f))));
 
-            foreach (var dirInfo in dir.EnumerateDirectories())
+            foreach (var dirPath in Directory.EnumerateDirectories(dir))
             {
-                var innerFilenames = GetAllFilenames(dirInfo, dirInfo.Name);
+                var innerFilenames = GetAllFilenames(dirPath, Path.Combine(prefix, Path.GetFileName(dirPath)));
                 filenames.UnionWith(innerFilenames);
             }
 
             return filenames;
+        }
+
+        private static IEnumerable<string> FilterSameFiles(string source, string target, IEnumerable<string> filenames)
+        {   //TODO: hash comparing
+            foreach (var filename in filenames)
+            {
+                var sourceFile = new FileInfo(Path.Combine(source, filename));
+                var targetFile = new FileInfo(Path.Combine(target, filename));
+
+                if (sourceFile.Length != targetFile.Length) yield return filename;
+            }
         }
     }
 }
