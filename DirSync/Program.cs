@@ -1,7 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using CommandLine;
 using DirSync.Log;
+using DirSync.Sync;
 
 namespace DirSync
 {
@@ -14,8 +14,7 @@ namespace DirSync
             try
             {
                 Parser.Default.ParseArguments<Options>(args)
-                    .WithParsed(Execute)
-                    .WithNotParsed(HandleErrors);
+                    .WithParsed(Execute);
             }
             catch (Exception e)
             {
@@ -26,15 +25,8 @@ namespace DirSync
 
         private static void Execute(Options options)
         {
-            log.Info($"Start synchronizing {options.Target} with {options.Source}");
-        }
-
-        private static void HandleErrors(IEnumerable<Error> errors)
-        {
-            foreach (var error in errors)
-            {
-                log.Error($"Arguments parsing error:\r\n{error}");
-            }
+            var dirSync = new FileSynchronizer(log);
+            dirSync.SyncDirs(options.Source, options.Target);
         }
     }
 }
