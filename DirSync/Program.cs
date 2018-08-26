@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Diagnostics;
-using System.Linq;
 using CommandLine;
 using DirSync.Log;
 using DirSync.Sync;
@@ -16,11 +15,11 @@ namespace DirSync
             try
             {
                 Parser.Default.ParseArguments<Options>(args)
-                    .WithParsed(Execute);
+                    .WithParsed(o => Execute(o, new FileSyncAsync(log)));
             }
             catch (UnauthorizedAccessException e)
             {
-                log.Error($"{e.Message} (try launch with administator rights)");
+                log.Error($"{e.Message} (try launch with administrator rights)");
             }
             catch (Exception e)
             {
@@ -29,46 +28,68 @@ namespace DirSync
             }
         }
 
-        private static void Execute(Options options)
+        private static void Execute(Options options, BaseFileSync fileSync)
         {
-            var dirSync = new FileSynchronizer(log);
-
             if (options.ShowSyncInfo)
             {
-                ShowSyncInfo(dirSync.GetDirsSyncInfo(options.Source, options.Target));
+                ShowSyncInfo(fileSync.GetDirsSyncInfo(options.Source, options.Target));
                 return;
             }
 
             var sw = new Stopwatch();
             sw.Start();
 
-            var syncInfo = dirSync.SyncDirs(options.Source, options.Target);
+            var syncInfo = fileSync.SyncDirs(options.Source, options.Target);
+
             sw.Stop();
 
+            ShowSyncResultStatistics(syncInfo, sw.ElapsedMilliseconds);
+        }
+
+        private static void ShowSyncResultStatistics(SyncInfo syncInfo, long elapsedMilliseconds)
+        {
             if (syncInfo == null)
             {
                 log.Info("Synchronization isn't started");
+                return;
             }
 
-            log.Info($"Synchronization completed in {TimeSpan.FromMilliseconds(sw.ElapsedMilliseconds)}");
+            if (!syncInfo.NeedToSync)
+            {
+                log.Info("Already up to date");
+                return;
+            }
+
+            var deletedFilesCount = syncInfo.FilesToDelete.Length;
+            var addedFilesCount = syncInfo.FilesToAdd.Length;
+            var replacedFilesCount = syncInfo.FilesToReplace.Length;
+
+            if (deletedFilesCount > 0) log.Info($"\r\nDeleted files count: {deletedFilesCount}", ConsoleColor.Red);
+            if (addedFilesCount > 0) log.Info($"\r\nAdded files count: {addedFilesCount}", ConsoleColor.Green);
+            if (replacedFilesCount > 0) log.Info($"\r\nReplaced files count: {replacedFilesCount}", ConsoleColor.Cyan);
+
+            log.Info($"\r\nTotal changed files count: {deletedFilesCount + addedFilesCount + replacedFilesCount}");
+            log.Info($"\r\nSynchronization completed in {TimeSpan.FromMilliseconds(elapsedMilliseconds)}");
         }
 
         private static void ShowSyncInfo(SyncInfo syncInfo)
         {
             if (syncInfo == null) return;
 
-            var filesToDelete = syncInfo.FilesToDelete.ToArray();
-            var filesToAdd = syncInfo.FilesToAdd.ToArray();
-            var filesToReplace = syncInfo.FilesToReplace.ToArray();
+            if (syncInfo.FilesToDelete.Length > 0)
+                log.Info(
+                    $"{syncInfo.FilesToDelete.Length} files to delete:\r\n{string.Join("\r\n", syncInfo.FilesToDelete)}\r\n",
+                    ConsoleColor.Red);
 
-            if (filesToDelete.Length > 0)
-                log.Info($"{filesToDelete.Length} files to delete:\r\n{string.Join("\r\n", filesToDelete)}\r\n", ConsoleColor.Red);
+            if (syncInfo.FilesToAdd.Length > 0)
+                log.Info(
+                    $"{syncInfo.FilesToAdd.Length} files to add:\r\n{string.Join("\r\n", syncInfo.FilesToAdd)}\r\n",
+                    ConsoleColor.Green);
 
-            if (filesToAdd.Length > 0)
-                log.Info($"{filesToAdd.Length} files to add:\r\n{string.Join("\r\n", filesToAdd)}\r\n", ConsoleColor.Green);
-
-            if (filesToReplace.Length > 0)
-                log.Info($"{filesToReplace.Length} files to replace:\r\n{string.Join("\r\n", filesToReplace)}\r\n", ConsoleColor.Cyan);
+            if (syncInfo.FilesToReplace.Length > 0)
+                log.Info(
+                    $"{syncInfo.FilesToReplace.Length} files to replace:\r\n{string.Join("\r\n", syncInfo.FilesToReplace)}\r\n",
+                    ConsoleColor.Cyan);
         }
     }
 }

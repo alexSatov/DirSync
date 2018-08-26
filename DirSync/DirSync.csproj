@@ -82,7 +82,9 @@
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Log\SyncLog.cs" />
-    <Compile Include="Sync\FileSynchronizer.cs" />
+    <Compile Include="Sync\BaseFileSync.cs" />
+    <Compile Include="Sync\FileSync.cs" />
+    <Compile Include="Sync\FileSyncAsync.cs" />
     <Compile Include="Sync\SyncInfo.cs" />
   </ItemGroup>
   <ItemGroup>

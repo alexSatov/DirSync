@@ -1,6 +1,4 @@
-﻿using System.Collections.Generic;
-
-namespace DirSync.Sync
+﻿namespace DirSync.Sync
 {
     public class SyncInfo
     {
