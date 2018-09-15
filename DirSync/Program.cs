@@ -3,17 +3,19 @@ using System.Diagnostics;
 using CommandLine;
 using DirSync.Log;
 using DirSync.Sync;
+using DirSyncAndroid;
 
 namespace DirSync
 {
     public class Program
     {
-        private static readonly ILog log = new SyncLog();
+        private static readonly ILog log = new ConsoleLog();
 
         public static void Main(string[] args)
         {
             try
             {
+                Test();
                 Parser.Default.ParseArguments<Options>(args)
                     .WithParsed(o => Execute(o, new FileSyncAsync(log)));
             }
@@ -25,6 +27,14 @@ namespace DirSync
             {
                 log.Error($"Unknown error:\r\n{e}");
                 Environment.Exit(-1);
+            }
+        }
+
+        private static void Test()
+        {
+            foreach (var deviceId in AndroidDeviceProvider.GetDeviceIds())
+            {
+                Console.WriteLine(deviceId);
             }
         }
 

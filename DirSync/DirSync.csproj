@@ -81,7 +81,7 @@
     <Compile Include="Options.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Log\SyncLog.cs" />
+    <Compile Include="Log\ConsoleLog.cs" />
     <Compile Include="Sync\BaseFileSync.cs" />
     <Compile Include="Sync\FileSync.cs" />
     <Compile Include="Sync\FileSyncAsync.cs" />
@@ -91,6 +91,11 @@
     <None Include="App.config" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\DirSyncAndroid\DirSyncAndroid.csproj">
+      <Project>{b19bc195-3a80-4970-aa4b-20482ea0a797}</Project>
+      <Name>DirSyncAndroid</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
 </Project>
