@@ -2,7 +2,7 @@
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
-using DirSync.Log;
+using DirSync.Logging;
 
 namespace DirSync.Sync
 {
@@ -42,24 +42,20 @@ namespace DirSync.Sync
         public async Task<SyncInfo> GetDirsSyncInfoAsync(string source, string target)
         {
             if (!IsSourceExist(source)) return null;
-            if (SameDirs(source, target)) return null;
+            if (AreSameDirs(source, target)) return null;
 
             CreateTargetIfNotExist(target);
 
             var tasks = new[]
             {
-                Task.Run(() => new HashSet<string>(GetAllFilenames(source))),
-                Task.Run(() => new HashSet<string>(GetAllFilenames(target)))
+                Task.Run(() => GetAllFilenames(source)),
+                Task.Run(() => GetAllFilenames(target))
             };
 
             await Task.WhenAll(tasks);
 
-            return new SyncInfo
-            {
-                FilesToDelete = tasks[1].Result.Except(tasks[0].Result).ToArray(),
-                FilesToAdd = tasks[0].Result.Except(tasks[1].Result).ToArray(),
-                FilesToReplace = FilterSameFiles(source, target, tasks[0].Result.Intersect(tasks[1].Result)).ToArray()
-            };
+            return new SyncInfo(tasks[0].Result.ToList(), tasks[1].Result.ToList(),
+                f => FilterSameFiles(source, target, f));
         }
 
         private async Task AddFilesAsync(string source, string target, IEnumerable<string> filenames)

@@ -1,6 +1,5 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using DirSync.Log;
+﻿using System.Linq;
+using DirSync.Logging;
 
 namespace DirSync.Sync
 {
@@ -29,19 +28,12 @@ namespace DirSync.Sync
         public override SyncInfo GetDirsSyncInfo(string source, string target)
         {
             if (!IsSourceExist(source)) return null;
-            if (SameDirs(source, target)) return null;
+            if (AreSameDirs(source, target)) return null;
 
             CreateTargetIfNotExist(target);
 
-            var sourceFilenames = new HashSet<string>(GetAllFilenames(source));
-            var targetFilenames = new HashSet<string>(GetAllFilenames(target));
-
-            return new SyncInfo
-            {
-                FilesToDelete = targetFilenames.Except(sourceFilenames).ToArray(),
-                FilesToAdd = sourceFilenames.Except(targetFilenames).ToArray(),
-                FilesToReplace = FilterSameFiles(source, target, sourceFilenames.Intersect(targetFilenames)).ToArray()
-            };
+            return new SyncInfo(GetAllFilenames(source).ToList(), GetAllFilenames(target).ToList(),
+                f => FilterSameFiles(source, target, f));
         }
     }
 }

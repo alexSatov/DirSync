@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace DirSync.Log
+namespace DirSync.Logging
 {
     public interface ILog
     {

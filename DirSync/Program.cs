@@ -1,7 +1,9 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using CommandLine;
-using DirSync.Log;
+using DirSync.Extensions;
+using DirSync.Logging;
 using DirSync.Sync;
 using DirSyncAndroid;
 
@@ -16,12 +18,12 @@ namespace DirSync
             try
             {
                 Test();
-                Parser.Default.ParseArguments<Options>(args)
-                    .WithParsed(o => Execute(o, new FileSyncAsync(log)));
+                Parser.Default.ParseArguments<Options>(args).WithParsed(o => Execute(o, new FileSyncAsync(log)));
             }
             catch (UnauthorizedAccessException e)
             {
                 log.Error($"{e.Message} (try launch with administrator rights)");
+                Environment.Exit(-1);
             }
             catch (Exception e)
             {
@@ -66,19 +68,22 @@ namespace DirSync
 
             if (!syncInfo.NeedToSync)
             {
-                log.Info("Already up to date");
+                log.Info("Already up-to-date");
                 return;
             }
 
-            var deletedFilesCount = syncInfo.FilesToDelete.Length;
-            var addedFilesCount = syncInfo.FilesToAdd.Length;
-            var replacedFilesCount = syncInfo.FilesToReplace.Length;
+            if (syncInfo.FilesToDelete.Count > 0)
+                log.Info($"\r\nDeleted files count: {syncInfo.FilesToDelete.Count}", ConsoleColor.Red);
 
-            if (deletedFilesCount > 0) log.Info($"\r\nDeleted files count: {deletedFilesCount}", ConsoleColor.Red);
-            if (addedFilesCount > 0) log.Info($"\r\nAdded files count: {addedFilesCount}", ConsoleColor.Green);
-            if (replacedFilesCount > 0) log.Info($"\r\nReplaced files count: {replacedFilesCount}", ConsoleColor.Cyan);
+            if (syncInfo.FilesToAdd.Count > 0)
+                log.Info($"\r\nAdded files count: {syncInfo.FilesToAdd.Count}", ConsoleColor.Green);
 
-            log.Info($"\r\nTotal changed files count: {deletedFilesCount + addedFilesCount + replacedFilesCount}");
+            if (syncInfo.FilesToReplace.Count > 0)
+                log.Info($"\r\nReplaced files count: {syncInfo.FilesToReplace.Count}", ConsoleColor.Cyan);
+
+            var total = syncInfo.FilesToDelete.Count + syncInfo.FilesToAdd.Count + syncInfo.FilesToReplace.Count;
+
+            log.Info($"\r\nTotal changed files count: {total}");
             log.Info($"\r\nSynchronization completed in {TimeSpan.FromMilliseconds(elapsedMilliseconds)}");
         }
 
@@ -86,20 +91,15 @@ namespace DirSync
         {
             if (syncInfo == null) return;
 
-            if (syncInfo.FilesToDelete.Length > 0)
-                log.Info(
-                    $"{syncInfo.FilesToDelete.Length} files to delete:\r\n{string.Join("\r\n", syncInfo.FilesToDelete)}\r\n",
-                    ConsoleColor.Red);
+            void Log(IReadOnlyCollection<string> files, string action, ConsoleColor color)
+            {
+                if (files.Count > 0)
+                    log.Info($"{files.Count} files to {action}:\r\n{files.ToLinesText()}\r\n", color);
+            }
 
-            if (syncInfo.FilesToAdd.Length > 0)
-                log.Info(
-                    $"{syncInfo.FilesToAdd.Length} files to add:\r\n{string.Join("\r\n", syncInfo.FilesToAdd)}\r\n",
-                    ConsoleColor.Green);
-
-            if (syncInfo.FilesToReplace.Length > 0)
-                log.Info(
-                    $"{syncInfo.FilesToReplace.Length} files to replace:\r\n{string.Join("\r\n", syncInfo.FilesToReplace)}\r\n",
-                    ConsoleColor.Cyan);
+            Log(syncInfo.FilesToDelete, "delete", ConsoleColor.Red);
+            Log(syncInfo.FilesToAdd, "add", ConsoleColor.Green);
+            Log(syncInfo.FilesToReplace, "replace", ConsoleColor.Cyan);
         }
     }
 }

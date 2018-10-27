@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using DirSync.Log;
+using DirSync.Logging;
 
 namespace DirSync.Sync
 {
@@ -59,7 +59,7 @@ namespace DirSync.Sync
             return false;
         }
 
-        protected bool SameDirs(string source, string target)
+        protected bool AreSameDirs(string source, string target)
         {
             if (source != target) return false;
 
@@ -78,8 +78,9 @@ namespace DirSync.Sync
 
         protected static IEnumerable<string> GetAllFilenames(string dir, string prefix = "")
         {
-            var filenames = new HashSet<string>(
-                    Directory.EnumerateFiles(dir).Select(f => Path.Combine(prefix, Path.GetFileName(f))));
+            var filenames = Directory.EnumerateFiles(dir)
+                .Select(f => Path.Combine(prefix, Path.GetFileName(f)))
+                .ToHashSet();
 
             foreach (var dirPath in Directory.EnumerateDirectories(dir))
             {
@@ -92,13 +93,11 @@ namespace DirSync.Sync
 
         protected static IEnumerable<string> FilterSameFiles(string source, string target, IEnumerable<string> filenames)
         {   //TODO: hash comparing
-            foreach (var filename in filenames)
-            {
-                var sourceFile = new FileInfo(Path.Combine(source, filename));
-                var targetFile = new FileInfo(Path.Combine(target, filename));
-
-                if (sourceFile.Length != targetFile.Length) yield return filename;
-            }
+            return from filename in filenames
+                let sourceFile = new FileInfo(Path.Combine(source, filename))
+                let targetFile = new FileInfo(Path.Combine(target, filename))
+                where sourceFile.Length != targetFile.Length
+                select filename;
         }
     }
 }
